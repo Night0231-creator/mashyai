@@ -1,4 +1,4 @@
-const APP_CACHE = "estuda-plus-app-v5";
+const APP_CACHE = "estuda-plus-app-v6";
 const PDF_CACHE = "estuda-plus-pdfjs-v3";
 const APP_FILES = ["./", "./index.html", "./styles.css", "./app.js", "./manifest.webmanifest", "./icon.svg"];
 const PDF_FILES = [
@@ -49,18 +49,18 @@ self.addEventListener("fetch", event => {
   if (url.origin === self.location.origin) {
     event.respondWith((async () => {
       const cache = await caches.open(APP_CACHE);
-      // Network-first para HTML, CSS e JavaScript: evita que o app instalado
-      // continue executando uma versão antiga depois de uma atualização.
+      const cached = await cache.match(request);
+      if (cached) return cached;
       try {
-        const freshRequest = new Request(request, { cache:"no-store" });
-        const response = await fetch(freshRequest);
+        const response = await fetch(request);
         if (response.ok) await cache.put(request, response.clone());
         return response;
       } catch (error) {
-        const cached = await cache.match(request) || await cache.match("./index.html");
-        if (cached) return cached;
-        if (request.mode === "navigate") return new Response("Abra o Estuda+ uma vez com internet para atualizar o aplicativo.", { status:503 });
-        return new Response("Recurso indisponível offline.", { status:503 });
+        if (request.mode === "navigate") {
+          const home = await cache.match("./index.html");
+          if (home) return home;
+        }
+        return new Response("Recurso indisponível offline. Conecte-se à internet e reabra o Estuda+.", { status:503, headers:{"Content-Type":"text/plain; charset=utf-8"} });
       }
     })());
   }
