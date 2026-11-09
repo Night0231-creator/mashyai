@@ -1,0 +1,15 @@
+{
+  "id":"./",
+  "name":"Estuda+ — Seu espaço de estudos",
+  "short_name":"Estuda+",
+  "description":"Organize apostilas, anotações, mapas mentais e seu tempo de estudo.",
+  "lang":"pt-BR",
+  "start_url":"./",
+  "scope":"./",
+  "display":"standalone",
+  "orientation":"any",
+  "background_color":"#f6f7fb",
+  "theme_color":"#171d35",
+  "categories":["education","productivity"],
+  "icons":[{"src":"./icon.svg","sizes":"any","type":"image/svg+xml","purpose":"any"}]
+}
