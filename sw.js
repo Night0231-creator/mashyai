@@ -1,7 +1,7 @@
-const CACHE="estuda-plus-v1";
+const CACHE="estuda-plus-v2";
 const PDF_CACHE="estuda-plus-pdf-v1";
 const APP=["./","./index.html","./manifest.webmanifest","./icon.svg"];
 const PDF=["https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js","https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js"];
 self.addEventListener("install",e=>e.waitUntil((async()=>{const c=await caches.open(CACHE);await c.addAll(APP);const p=await caches.open(PDF_CACHE);await Promise.allSettled(PDF.map(async u=>{const r=await fetch(u,{mode:"cors"});if(r.ok)await p.put(u,r)}));await self.skipWaiting()})()));
-self.addEventListener("activate",e=>e.waitUntil((async()=>{for(const k of await caches.keys())if(![CACHE,PDF_CACHE].includes(k))await caches.delete(k);await self.clients.claim()})()));
+self.addEventListener("activate",e=>e.waitUntil((async()=>{for(const k of await caches.keys())if(k.startsWith("estuda-plus-")&&![CACHE,PDF_CACHE].includes(k))await caches.delete(k);await self.clients.claim()})()));
 self.addEventListener("fetch",e=>{if(e.request.method!=="GET")return;const u=new URL(e.request.url);if(PDF.includes(u.href)){e.respondWith((async()=>{const c=await caches.open(PDF_CACHE),old=await c.match(e.request);if(old)return old;try{const r=await fetch(e.request);if(r.ok)await c.put(e.request,r.clone());return r}catch{return new Response("Conecte-se à internet uma vez para carregar o leitor PDF.",{status:503})}})());return}if(u.origin===location.origin)e.respondWith((async()=>{const c=await caches.open(CACHE),old=await c.match(e.request);if(old)return old;try{const r=await fetch(e.request);if(r.ok)c.put(e.request,r.clone());return r}catch{return c.match("./index.html")||new Response("Offline",{status:503})}})())});
