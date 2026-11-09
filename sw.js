@@ -1,4 +1,4 @@
-const APP_CACHE = "estuda-plus-app-v3";
+const APP_CACHE = "estuda-plus-app-v4";
 const PDF_CACHE = "estuda-plus-pdfjs-v3";
 const APP_FILES = ["./", "./index.html", "./styles.css", "./app.js", "./manifest.webmanifest", "./icon.svg"];
 const PDF_FILES = [

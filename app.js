@@ -6,17 +6,10 @@ const DB_NAME = "estudaplus_local_v1";
 const DB_VERSION = 1;
 const DAYS = ["Domingo", "Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira", "Sábado"];
 const SHORT_DAYS = ["Dom", "Seg", "Ter", "Qua", "Qui", "Sex", "Sáb"];
-const TOPIC_STATUSES = [
-  { value: "todo", label: "Não iniciado" },
-  { value: "doing", label: "Estudando" },
-  { value: "done", label: "Concluído" },
-  { value: "reviewed", label: "Revisado" }
-];
-
 let db;
 let state = {
   materials: [], pageNotes: [], bookmarks: [], sessions: [],
-  editalSubjects: [], plannerItems: [], reviews: [], quickNotes: [],
+  editalSubjects: [], plannerItems: [], reviews: [],
   examName: "", goals: { dailyMinutes: 120, weeklyMinutes: 600 }
 };
 let currentMaterial = null;
@@ -27,12 +20,12 @@ let pdfBlobUrl = null;
 let pdfWorkerBlobUrl = null;
 let pdfWorkerReady = null;
 let noteSaveTimer = null;
+let timerSelectedMinutes = 25;
 let timerSeconds = 25 * 60;
 let timerInitialSeconds = 25 * 60;
 let timerInterval = null;
 let timerActive = false;
 let installPrompt = null;
-let editingQuickNoteId = null;
 
 function uid() { return "id-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 function esc(value = "") {
@@ -134,7 +127,6 @@ function normalizeState(saved = {}) {
     editalSubjects: Array.isArray(saved.editalSubjects) ? saved.editalSubjects : [],
     plannerItems: Array.isArray(saved.plannerItems) ? saved.plannerItems : [],
     reviews: Array.isArray(saved.reviews) ? saved.reviews : [],
-    quickNotes: Array.isArray(saved.quickNotes) ? saved.quickNotes : [],
     examName: typeof saved.examName === "string" ? saved.examName : "",
     goals: { dailyMinutes: Number(saved.goals?.dailyMinutes) || 120, weeklyMinutes: Number(saved.goals?.weeklyMinutes) || 600 }
   };
@@ -171,10 +163,10 @@ async function updateStorageStatus() {
 }
 
 const VIEW_NAMES = {
-  home:"Início", library:"Biblioteca PDF", reader:"Leitor de PDF", notebook:"Caderno",
+  home:"Início", library:"Biblioteca PDF", reader:"Leitor de PDF", notebook:"Anotações por página",
   favorites:"Páginas favoritas", timer:"Cronômetro", edital:"Checklist do edital",
   planner:"Planejador", reviews:"Revisões", performance:"Desempenho",
-  quicknotes:"Notas rápidas", goals:"Metas"
+  goals:"Metas"
 };
 function setView(name) {
   $$(".view").forEach(view => view.hidden = view.id !== "view-" + name);
@@ -190,7 +182,6 @@ function setView(name) {
   if (name === "planner") renderPlanner();
   if (name === "reviews") renderReviews();
   if (name === "performance") renderPerformance();
-  if (name === "quicknotes") renderQuickNotes();
   if (name === "goals") renderGoals();
 }
 function navigate(name) { setView(name); }
@@ -431,11 +422,40 @@ function updateTimerDisplay() {
   const minutes = Math.floor(timerSeconds / 60), seconds = timerSeconds % 60;
   $("#timer-display").textContent = String(minutes).padStart(2,"0") + ":" + String(seconds).padStart(2,"0");
 }
+function updateTimerPresetButtons(selected) {
+  $$("[data-timer-preset]").forEach(button => button.classList.toggle("active", button.dataset.timerPreset === String(selected)));
+}
+function setTimerDuration(minutes, custom = false) {
+  if (timerActive) { toast("Pause o cronômetro antes de mudar o tempo.", "error"); return; }
+  timerSelectedMinutes = minutes;
+  timerSeconds = minutes * 60;
+  timerInitialSeconds = timerSeconds;
+  updateTimerPresetButtons(custom ? "custom" : minutes);
+  $("#timer-custom-box").hidden = !custom;
+  $("#timer-state").textContent = "Pronto · " + minutes + " minutos";
+  $("#timer-start").textContent = "▶ Começar";
+  updateTimerDisplay();
+}
+function openCustomTimer() {
+  if (timerActive) { toast("Pause o cronômetro antes de mudar o tempo.", "error"); return; }
+  updateTimerPresetButtons("custom");
+  $("#timer-custom-box").hidden = false;
+  $("#timer-custom-minutes").focus();
+}
+function applyCustomTimer() {
+  const minutes = Number($("#timer-custom-minutes").value);
+  if (!Number.isInteger(minutes) || minutes < 1 || minutes > 600) {
+    toast("Escolha um tempo entre 1 e 600 minutos.", "error");
+    return;
+  }
+  setTimerDuration(minutes, true);
+  toast("Cronômetro ajustado para " + minutes + " minutos.");
+}
 function resetTimer() {
   clearInterval(timerInterval); timerActive = false;
-  timerSeconds = Number($("#timer-length").value) * 60;
+  timerSeconds = timerSelectedMinutes * 60;
   timerInitialSeconds = timerSeconds;
-  $("#timer-start").textContent = "Começar"; $("#timer-state").textContent = "Pronto para começar";
+  $("#timer-start").textContent = "▶ Começar"; $("#timer-state").textContent = "Pronto para começar";
   updateTimerDisplay();
 }
 async function recordTimerSession(minutes) {
@@ -471,39 +491,59 @@ function renderTimerSessions() {
 }
 
 function renderEdictal() {
-  $("#exam-name").value = state.examName || "";
+  const examInput = $("#exam-name");
+  if (document.activeElement !== examInput) examInput.value = state.examName || "";
   const allTopics = state.editalSubjects.flatMap(subject => subject.topics || []);
   const done = allTopics.filter(topic => topic.status === "done" || topic.status === "reviewed").length;
   const percent = allTopics.length ? Math.round(done / allTopics.length * 100) : 0;
   $("#edital-progress-text").textContent = percent + "% concluído";
-  $("#edital-progress-sub").textContent = `${done} de ${allTopics.length} assuntos concluídos ou revisados`;
+  $("#edital-progress-sub").textContent = allTopics.length ? `${done} de ${allTopics.length} assuntos concluídos` : "Adicione matérias e assuntos para começar";
   $("#edital-progress-bar").style.width = percent + "%";
+
   $("#edital-subjects").innerHTML = state.editalSubjects.length ? state.editalSubjects.map(subject => {
     const topics = subject.topics || [];
     const completed = topics.filter(topic => topic.status === "done" || topic.status === "reviewed").length;
-    return `<article class="subject-card"><div class="subject-head"><h3>${esc(subject.name)}</h3><small>${completed}/${topics.length} concluídos</small><button data-delete-subject="${subject.id}" title="Excluir matéria">Excluir</button></div>
-      <div class="topic-list">${topics.length ? topics.map(topic => `<div class="topic-row"><span>${esc(topic.name)}</span><select data-topic-status="${topic.id}" data-subject-id="${subject.id}">${TOPIC_STATUSES.map(status => `<option value="${status.value}" ${topic.status === status.value ? "selected" : ""}>${status.label}</option>`).join("")}</select><button class="topic-delete" data-delete-topic="${topic.id}" data-subject-id="${subject.id}" title="Excluir assunto">×</button></div>`).join("") : '<p class="helper-text">Adicione os assuntos desta matéria abaixo.</p>'}</div>
-      <div class="add-topic"><input data-topic-input="${subject.id}" placeholder="Novo assunto do edital"><button class="btn outline" data-add-topic="${subject.id}">＋ Assunto</button></div></article>`;
-  }).join("") : '<div class="empty-state">Cadastre sua primeira matéria para começar a acompanhar o edital.</div>';
+    const subjectPercent = topics.length ? Math.round(completed / topics.length * 100) : 0;
+    return `<article class="subject-card">
+      <div class="subject-head"><div class="subject-title-wrap"><h3>${esc(subject.name)}</h3><small>${completed} de ${topics.length} assuntos concluídos</small></div><button class="subject-delete" data-delete-subject="${subject.id}" title="Excluir matéria">Excluir</button></div>
+      <div class="subject-progress"><span style="width:${subjectPercent}%"></span></div>
+      <div class="topic-list">${topics.length ? topics.map(topic => {
+        const isDone = topic.status === "done" || topic.status === "reviewed";
+        return `<div class="topic-row-wrap"><button type="button" class="topic-row ${isDone ? "is-done" : ""}" data-topic-toggle="${topic.id}" data-subject-id="${subject.id}" aria-pressed="${isDone}"><span class="topic-check-icon">${isDone ? "✓" : ""}</span><span class="topic-name">${esc(topic.name)}</span><span class="topic-action">${isDone ? "Concluído" : "Marcar"}</span></button><button class="topic-delete" data-delete-topic="${topic.id}" data-subject-id="${subject.id}" title="Excluir assunto" aria-label="Excluir assunto">×</button></div>`;
+      }).join("") : '<p class="helper-text">Esta matéria ainda não tem assuntos. Adicione o primeiro abaixo.</p>'}</div>
+      <div class="add-topic"><input data-topic-input="${subject.id}" placeholder="Digite um assunto do edital..." aria-label="Novo assunto de ${esc(subject.name)}"><button class="btn soft" data-add-topic="${subject.id}">＋ Adicionar assunto</button></div>
+    </article>`;
+  }).join("") : '<div class="empty-state">Você ainda não adicionou matérias. Comece pelo campo “Adicionar matéria” acima.</div>';
+
   $$('[data-delete-subject]').forEach(button => button.addEventListener("click", async () => {
-    if (!confirm("Excluir esta matéria e seus assuntos do checklist?")) return;
+    if (!confirm("Excluir esta matéria e todos os assuntos dela?")) return;
     state.editalSubjects = state.editalSubjects.filter(item => item.id !== button.dataset.deleteSubject);
     await saveState(); renderEdictal();
   }));
   $$('[data-add-topic]').forEach(button => button.addEventListener("click", async () => {
     const input = $(`[data-topic-input="${button.dataset.addTopic}"]`), name = input.value.trim();
-    if (!name) { toast("Digite o nome do assunto.", "error"); return; }
+    if (!name) { toast("Digite o nome do assunto.", "error"); input.focus(); return; }
     const subject = state.editalSubjects.find(item => item.id === button.dataset.addTopic);
-    if (subject) { subject.topics.push({ id:uid(), name, status:"todo" }); await saveState(); renderEdictal(); }
+    if (subject) { subject.topics.push({ id:uid(), name, status:"todo" }); await saveState(); renderEdictal(); toast("Assunto adicionado."); }
   }));
-  $$('[data-topic-status]').forEach(select => select.addEventListener("change", async () => {
-    const subject = state.editalSubjects.find(item => item.id === select.dataset.subjectId);
-    const topic = subject?.topics.find(item => item.id === select.dataset.topicStatus);
-    if (topic) { topic.status = select.value; await saveState(); renderEdictal(); }
+  $$('[data-topic-input]').forEach(input => input.addEventListener("keydown", event => {
+    if (event.key === "Enter") $(`[data-add-topic="${input.dataset.topicInput}"]`).click();
+  }));
+  $$('[data-topic-toggle]').forEach(button => button.addEventListener("click", async () => {
+    const subject = state.editalSubjects.find(item => item.id === button.dataset.subjectId);
+    const topic = subject?.topics.find(item => item.id === button.dataset.topicToggle);
+    if (!topic) return;
+    const wasDone = topic.status === "done" || topic.status === "reviewed";
+    topic.status = wasDone ? "todo" : "done";
+    await saveState(); renderEdictal();
+    toast(wasDone ? "Assunto voltou para pendente." : "Assunto concluído!");
   }));
   $$('[data-delete-topic]').forEach(button => button.addEventListener("click", async () => {
     const subject = state.editalSubjects.find(item => item.id === button.dataset.subjectId);
-    if (subject) { subject.topics = subject.topics.filter(topic => topic.id !== button.dataset.deleteTopic); await saveState(); renderEdictal(); }
+    if (subject) {
+      subject.topics = subject.topics.filter(topic => topic.id !== button.dataset.deleteTopic);
+      await saveState(); renderEdictal();
+    }
   }));
 }
 async function addSubject() {
@@ -600,33 +640,6 @@ function renderPerformance() {
   $("#subject-performance").innerHTML = subjects.length ? subjects.map(([name,minutes]) => `<div class="simple-row"><div><b>${esc(name)}</b><small>${state.sessions.filter(item => (item.subject || "Geral") === name).length} sessões</small></div><strong>${minutesText(minutes)}</strong></div>`).join("") : '<div class="empty-state">Conclua uma sessão no cronômetro para ver seu desempenho.</div>';
 }
 
-function renderQuickNotes() {
-  const query = ($("#quicknotes-search").value || "").toLowerCase().trim();
-  const items = [...state.quickNotes].sort((a,b) => new Date(b.updated || b.created) - new Date(a.updated || a.created)).filter(item => (item.title + " " + item.content).toLowerCase().includes(query));
-  $("#quicknotes-count").textContent = state.quickNotes.length;
-  $("#quicknotes-list").innerHTML = items.length ? items.map(item => `<article class="quicknote-card"><h3>${esc(item.title)}</h3><small>${formatDate(item.updated || item.created)}</small><p>${esc(item.content)}</p><div class="quicknote-actions"><button data-edit-quicknote="${item.id}">Editar</button><button class="delete" data-delete-quicknote="${item.id}">Excluir</button></div></article>`).join("") : '<div class="empty-state">Nenhuma nota rápida. Use o formulário para registrar uma informação importante.</div>';
-  $$('[data-edit-quicknote]').forEach(button => button.addEventListener("click", () => {
-    const item = state.quickNotes.find(note => note.id === button.dataset.editQuicknote);
-    if (!item) return;
-    editingQuickNoteId = item.id; $("#quick-title").value = item.title; $("#quick-content").value = item.content; $("#save-quicknote").textContent = "Salvar alterações";
-    $("#quick-title").focus(); window.scrollTo({ top:0, behavior:"smooth" });
-  }));
-  $$('[data-delete-quicknote]').forEach(button => button.addEventListener("click", async () => {
-    state.quickNotes = state.quickNotes.filter(item => item.id !== button.dataset.deleteQuicknote);
-    await saveState(); renderQuickNotes();
-  }));
-}
-async function saveQuickNote() {
-  const title = $("#quick-title").value.trim(), content = $("#quick-content").value.trim();
-  if (!title || !content) { toast("Preencha o título e o conteúdo da nota.", "error"); return; }
-  if (editingQuickNoteId) {
-    const item = state.quickNotes.find(note => note.id === editingQuickNoteId);
-    if (item) { item.title = title; item.content = content; item.updated = new Date().toISOString(); }
-  } else state.quickNotes.unshift({ id:uid(), title, content, created:new Date().toISOString(), updated:new Date().toISOString() });
-  editingQuickNoteId = null; $("#quick-title").value = ""; $("#quick-content").value = ""; $("#save-quicknote").textContent = "＋ Salvar nota";
-  await saveState(); renderQuickNotes(); toast("Nota salva automaticamente no aparelho.");
-}
-
 function renderGoals() {
   $("#goal-daily").value = state.goals.dailyMinutes;
   $("#goal-weekly").value = state.goals.weeklyMinutes;
@@ -712,7 +725,7 @@ function registerPwa() {
 
 function renderEverything() {
   renderHome(); renderMaterials(); renderNotebook(); renderFavorites(); renderTimerSessions();
-  renderEdictal(); renderPlanner(); renderReviews(); renderPerformance(); renderQuickNotes(); renderGoals();
+  renderEdictal(); renderPlanner(); renderReviews(); renderPerformance(); renderGoals();
 }
 function bindEvents() {
   bindNavigation();
@@ -738,15 +751,18 @@ function bindEvents() {
   $("#timer-start").addEventListener("click", toggleTimer);
   $("#timer-reset").addEventListener("click", resetTimer);
   $("#timer-finish").addEventListener("click", () => finishTimer(false));
-  $("#timer-length").addEventListener("change", () => { if (!timerActive) resetTimer(); });
-  $("#save-exam-name").addEventListener("click", async () => { state.examName = $("#exam-name").value.trim(); await saveState(); toast("Nome do concurso salvo."); });
+  $('[data-timer-preset]').forEach(button => button.addEventListener("click", () => {
+    if (button.dataset.timerPreset === "custom") openCustomTimer();
+    else setTimerDuration(Number(button.dataset.timerPreset), false);
+  }));
+  $("#timer-apply-custom").addEventListener("click", applyCustomTimer);
+  $("#timer-custom-minutes").addEventListener("keydown", event => { if (event.key === "Enter") applyCustomTimer(); });
+  $("#exam-name").addEventListener("change", async () => { state.examName = $("#exam-name").value.trim(); await saveState(); });
   $("#add-subject").addEventListener("click", addSubject);
   $("#new-subject").addEventListener("keydown", event => { if (event.key === "Enter") addSubject(); });
   $("#add-plan").addEventListener("click", addPlanItem);
   $("#add-review").addEventListener("click", addManualReview);
   $("#review-filter").addEventListener("change", renderReviews);
-  $("#save-quicknote").addEventListener("click", saveQuickNote);
-  $("#quicknotes-search").addEventListener("input", renderQuickNotes);
   $("#save-goals").addEventListener("click", saveGoals);
   $("#backup-btn").addEventListener("click", backupData);
   $("#restore-btn").addEventListener("click", () => $("#restore-file").click());

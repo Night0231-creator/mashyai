@@ -24,14 +24,13 @@
     <nav class="nav">
       <button class="nav-item active" data-view="home"><span>⌂</span> Início</button>
       <button class="nav-item" data-view="library"><span>▤</span> Biblioteca PDF</button>
-      <button class="nav-item" data-view="notebook"><span>▧</span> Caderno</button>
+      <button class="nav-item" data-view="notebook"><span>▧</span> Anotações por página</button>
       <button class="nav-item" data-view="favorites"><span>☆</span> Páginas favoritas</button>
       <button class="nav-item" data-view="timer"><span>◷</span> Cronômetro</button>
       <button class="nav-item" data-view="edital"><span>☑</span> Checklist do edital</button>
       <button class="nav-item" data-view="planner"><span>▦</span> Planejador</button>
       <button class="nav-item" data-view="reviews"><span>↻</span> Revisões</button>
       <button class="nav-item" data-view="performance"><span>▥</span> Desempenho</button>
-      <button class="nav-item" data-view="quicknotes"><span>✎</span> Notas rápidas</button>
       <button class="nav-item" data-view="goals"><span>◎</span> Metas</button>
     </nav>
     <div class="sidebar-bottom">
@@ -101,7 +100,7 @@
             <div class="pdf-footer"><span id="reader-filename">Documento PDF</span><span id="reader-page-hint">Anotações salvas por página</span></div>
           </div>
           <aside class="reader-tools">
-            <div class="reader-tool-heading"><span class="eyebrow">SEU CADERNO</span><h2>Anotação da página</h2><p>Escreva o que precisa lembrar. O salvamento é automático.</p></div>
+            <div class="reader-tool-heading"><span class="eyebrow">ANOTAÇÃO DESTA PÁGINA</span><h2>Suas anotações</h2><p>O que você escrever fica salvo nesta página do PDF.</p></div>
             <label class="tool-label" for="page-note">Página atual</label><textarea id="page-note" rows="10" placeholder="Digite suas anotações desta página..."></textarea>
             <div class="reader-actions"><button class="btn primary full" id="save-note">Salvar anotação</button><button class="btn outline full" id="schedule-page-review">↻ Agendar revisão</button><button class="btn soft full" id="save-bookmark">☆ Salvar página favorita</button></div>
             <div class="separator"></div><span class="tool-label">Páginas favoritas desta apostila</span><div class="tiny-list" id="page-bookmarks"></div>
@@ -110,7 +109,7 @@
       </section>
 
       <section class="view" id="view-notebook" hidden>
-        <div class="page-heading"><div><span class="eyebrow">TUDO O QUE VOCÊ REGISTROU</span><h1>Meu caderno</h1><p>Anotações organizadas por apostila e número da página.</p></div><button class="btn outline" id="export-notes">↓ Exportar caderno</button></div>
+        <div class="page-heading"><div><span class="eyebrow">TUDO O QUE VOCÊ REGISTROU</span><h1>Anotações por página</h1><p>Consulte o que você escreveu em cada página das suas apostilas.</p></div><button class="btn outline" id="export-notes">↓ Exportar caderno</button></div>
         <div class="toolbar"><h2>Minhas anotações <span class="pill" id="notes-count">0</span></h2><input class="search-input" id="notes-search" placeholder="Buscar nas anotações..."></div>
         <div class="notes-grid" id="notes-list"></div>
       </section>
@@ -121,17 +120,44 @@
       </section>
 
       <section class="view" id="view-timer" hidden>
-        <div class="page-heading"><div><span class="eyebrow">FOCO E CONSTÂNCIA</span><h1>Cronômetro de estudos</h1><p>Escolha a duração, informe a matéria e comece sua sessão.</p></div></div>
+        <div class="page-heading"><div><span class="eyebrow">FOCO E CONSTÂNCIA</span><h1>Cronômetro de estudos</h1><p>Escolha um tempo ou personalize do seu jeito.</p></div></div>
         <div class="timer-page-grid">
-          <article class="panel timer-panel"><div class="timer-circle"><div><strong id="timer-display">25:00</strong><small id="timer-state">Pronto para começar</small></div></div><div class="timer-controls"><button class="btn primary" id="timer-start">Começar</button><button class="btn soft" id="timer-reset">Reiniciar</button><button class="btn outline" id="timer-finish">Finalizar e salvar</button></div><div class="timer-fields"><label>Duração<select id="timer-length"><option value="25">25 minutos</option><option value="40">40 minutos</option><option value="50">50 minutos</option><option value="60">60 minutos</option><option value="90">90 minutos</option></select></label><label>Matéria<input id="timer-subject" placeholder="Ex.: Direito Penal"></label></div><p class="helper-text">A sessão concluída entra automaticamente no seu histórico de desempenho.</p></article>
-          <article class="panel"><div class="panel-heading"><div><span class="eyebrow">SUAS SESSÕES</span><h2>Últimos estudos</h2></div></div><div id="timer-recent-sessions" class="simple-list"></div></article>
+          <article class="panel timer-panel">
+            <div class="timer-circle"><div><strong id="timer-display">25:00</strong><small id="timer-state">Pronto para começar</small></div></div>
+            <div class="timer-controls"><button class="btn primary" id="timer-start">▶ Começar</button><button class="btn soft" id="timer-reset">↻ Reiniciar</button><button class="btn outline" id="timer-finish">Salvar sessão</button></div>
+            <div class="timer-choice-label">Quanto tempo você quer estudar?</div>
+            <div class="timer-presets" aria-label="Tempos predefinidos">
+              <button class="timer-preset" type="button" data-timer-preset="15">15 min</button>
+              <button class="timer-preset active" type="button" data-timer-preset="25">25 min</button>
+              <button class="timer-preset" type="button" data-timer-preset="40">40 min</button>
+              <button class="timer-preset" type="button" data-timer-preset="50">50 min</button>
+              <button class="timer-preset" type="button" data-timer-preset="60">1 hora</button>
+              <button class="timer-preset" type="button" data-timer-preset="custom">Personalizar</button>
+            </div>
+            <div class="timer-custom-box" id="timer-custom-box" hidden>
+              <label for="timer-custom-minutes">Digite o tempo em minutos</label>
+              <div class="timer-custom-row"><input id="timer-custom-minutes" type="number" inputmode="numeric" min="1" max="600" value="35" placeholder="Ex.: 35"><button class="btn primary" id="timer-apply-custom" type="button">Aplicar tempo</button></div>
+              <small>Você pode escolher de 1 a 600 minutos.</small>
+            </div>
+            <div class="timer-fields"><label>Matéria (opcional)<input id="timer-subject" placeholder="Ex.: Direito Penal"></label></div>
+            <p class="helper-text">Ao terminar, sua sessão será registrada automaticamente.</p>
+          </article>
+          <article class="panel"><div class="panel-heading"><div><span class="eyebrow">SEU HISTÓRICO</span><h2>Últimos estudos</h2></div></div><div id="timer-recent-sessions" class="simple-list"></div></article>
         </div>
       </section>
 
       <section class="view" id="view-edital" hidden>
-        <div class="page-heading"><div><span class="eyebrow">ACOMPANHE O CONTEÚDO</span><h1>Checklist do edital</h1><p>Cadastre as matérias e acompanhe o que já estudou.</p></div></div>
-        <article class="panel"><label class="tool-label" for="exam-name">Nome do concurso</label><div class="inline-form"><input id="exam-name" placeholder="Ex.: Guarda Municipal de Paulínia"><button class="btn primary" id="save-exam-name">Salvar</button></div><div class="progress-row"><div><b id="edital-progress-text">0% concluído</b><small id="edital-progress-sub">Nenhum assunto cadastrado</small></div><div class="progress-track"><i id="edital-progress-bar"></i></div></div></article>
-        <article class="panel"><div class="panel-heading"><div><span class="eyebrow">ORGANIZE POR DISCIPLINA</span><h2>Adicionar matéria</h2></div></div><div class="inline-form"><input id="new-subject" placeholder="Ex.: Língua Portuguesa"><button class="btn primary" id="add-subject">＋ Adicionar</button></div></article>
+        <div class="page-heading"><div><span class="eyebrow">ACOMPANHE SEU PROGRESSO</span><h1>Checklist do edital</h1><p>Adicione uma matéria e marque cada assunto com apenas um toque.</p></div></div>
+        <article class="panel checklist-overview">
+          <label class="tool-label" for="exam-name">Nome do concurso (opcional)</label>
+          <input id="exam-name" placeholder="Ex.: Guarda Municipal de Paulínia">
+          <div class="progress-row"><div><b id="edital-progress-text">0% concluído</b><small id="edital-progress-sub">Adicione matérias para começar</small></div><div class="progress-track"><i id="edital-progress-bar"></i></div></div>
+        </article>
+        <article class="panel checklist-add-subject">
+          <div class="panel-heading"><div><span class="eyebrow">PRIMEIRO PASSO</span><h2>Adicionar matéria</h2></div><span class="step-number">1</span></div>
+          <div class="checklist-add-row"><input id="new-subject" placeholder="Ex.: Língua Portuguesa"><button class="btn primary" id="add-subject">＋ Criar matéria</button></div>
+          <p class="helper-text">Depois, adicione os assuntos dentro de cada matéria.</p>
+        </article>
         <div id="edital-subjects" class="subject-list"></div>
       </section>
 
@@ -152,12 +178,6 @@
         <div class="stats-grid performance-stats"><article class="stat-card"><div class="stat-icon purple">◷</div><span>Tempo total</span><strong id="perf-total">0h</strong><small id="perf-total-min">0 minutos</small></article><article class="stat-card"><div class="stat-icon blue">▦</div><span>Esta semana</span><strong id="perf-week">0h</strong><small>Tempo registrado</small></article><article class="stat-card"><div class="stat-icon amber">✓</div><span>Sessões</span><strong id="perf-sessions">0</strong><small>Concluídas</small></article></div>
         <article class="panel"><div class="panel-heading"><div><span class="eyebrow">ÚLTIMOS 7 DIAS</span><h2>Tempo por dia</h2></div></div><div id="weekly-chart" class="weekly-chart"></div></article>
         <article class="panel"><div class="panel-heading"><div><span class="eyebrow">DISCIPLINAS</span><h2>Tempo por matéria</h2></div></div><div id="subject-performance" class="simple-list"></div></article>
-      </section>
-
-      <section class="view" id="view-quicknotes" hidden>
-        <div class="page-heading"><div><span class="eyebrow">ANOTE SEM COMPLICAÇÃO</span><h1>Notas rápidas</h1><p>Guarde fórmulas, lembretes, artigos de lei e ideias.</p></div></div>
-        <article class="panel"><div class="quicknote-form"><label>Título<input id="quick-title" placeholder="Ex.: Artigos importantes do CTB"></label><label>Conteúdo<textarea id="quick-content" rows="4" placeholder="Escreva sua nota..."></textarea></label><button class="btn primary" id="save-quicknote">＋ Salvar nota</button></div></article>
-        <div class="toolbar"><h2>Minhas notas <span class="pill" id="quicknotes-count">0</span></h2><input class="search-input" id="quicknotes-search" placeholder="Buscar nota..."></div><div class="quicknotes-grid" id="quicknotes-list"></div>
       </section>
 
       <section class="view" id="view-goals" hidden>

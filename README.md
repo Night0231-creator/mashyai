@@ -4,21 +4,23 @@ Plataforma gratuita de organização de estudos para concursos, adaptada para An
 
 ## Ferramentas
 
-1. Biblioteca de PDFs e leitor página por página.
-2. Páginas favoritas dentro das apostilas.
-3. Caderno com anotações individuais por página e exportação.
-4. Cronômetro de estudos com registro de sessões.
-5. Checklist do edital por matéria e assunto.
-6. Planejador semanal de estudos.
-7. Agenda de revisões, inclusive ciclos de 1, 7 e 30 dias a partir das anotações do PDF.
-8. Painel de desempenho com histórico e gráficos semanais.
-9. Notas rápidas.
+1. Biblioteca de PDFs.
+2. Leitor de PDF página por página, com anotações individuais.
+3. Páginas favoritas dentro das apostilas.
+4. Caderno para consultar anotações por página.
+5. Cronômetro com tempos predefinidos e duração personalizada.
+6. Checklist do edital com marcação de conclusão em um toque.
+7. Planejador semanal de estudos.
+8. Agenda de revisões, inclusive ciclos de 1, 7 e 30 dias.
+9. Painel de desempenho com histórico e gráficos semanais.
 10. Metas diárias e semanais.
+
+A ferramenta separada de notas rápidas foi removida para deixar a navegação mais simples. As anotações dentro de cada página do PDF foram mantidas.
 
 ## Armazenamento e privacidade
 
 - PDFs e dados são guardados localmente no aparelho usando IndexedDB.
-- O salvamento de anotações e ferramentas ocorre automaticamente.
+- O salvamento das anotações por página e das ferramentas ocorre automaticamente.
 - O backup exporta os dados e os PDFs para um arquivo JSON que pode ser restaurado em outro aparelho.
 - Os dados não são sincronizados entre aparelhos.
 - O navegador pode limitar ou remover dados locais; mantenha cópias de backup.
