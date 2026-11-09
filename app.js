@@ -19,6 +19,7 @@ let pdfZoom = 1;
 let pdfBlobUrl = null;
 let pdfWorkerBlobUrl = null;
 let pdfWorkerReady = null;
+let pdfLibraryReady = null;
 let noteSaveTimer = null;
 let timerSelectedMinutes = 25;
 let timerSeconds = 25 * 60;
@@ -245,6 +246,41 @@ function renderMaterials() {
   $$('[data-delete-material]').forEach(button => button.addEventListener("click", () => deleteMaterial(button.dataset.deleteMaterial)));
 }
 
+async function ensurePdfLibrary() {
+  if (window.pdfjsLib) return window.pdfjsLib;
+  if (!pdfLibraryReady) {
+    pdfLibraryReady = new Promise((resolve, reject) => {
+      const script = document.createElement("script");
+      let settled = false;
+      const timeout = setTimeout(() => {
+        if (settled) return;
+        settled = true;
+        reject(new Error("Não foi possível carregar o leitor PDF. Confira a internet e tente novamente."));
+      }, 15000);
+      script.src = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+      script.async = true;
+      script.onload = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        if (window.pdfjsLib) resolve(window.pdfjsLib);
+        else reject(new Error("O leitor PDF não iniciou corretamente."));
+      };
+      script.onerror = () => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timeout);
+        reject(new Error("Não foi possível baixar o leitor PDF. Conecte-se à internet e tente novamente."));
+      };
+      document.head.appendChild(script);
+    }).catch(error => {
+      pdfLibraryReady = null;
+      throw error;
+    });
+  }
+  return pdfLibraryReady;
+}
+
 async function configurePdfWorker() {
   if (pdfWorkerReady) return pdfWorkerReady;
   pdfWorkerReady = (async () => {
@@ -268,7 +304,7 @@ async function openReader(id) {
   const item = material(id);
   if (!item) { toast("Material não encontrado.", "error"); return; }
   try {
-    if (!window.pdfjsLib) throw new Error("O leitor PDF ainda não está disponível. Abra o Estuda+ uma vez com internet para carregar o leitor.");
+    await ensurePdfLibrary();
     await configurePdfWorker();
     const record = await idbGet("files", id);
     if (!record?.blob) throw new Error("O PDF não foi encontrado no armazenamento deste aparelho.");
@@ -828,6 +864,5 @@ async function init() {
     connection.textContent = navigator.onLine ? "Conectado" : "Modo offline";
     connection.classList.toggle("online", navigator.onLine);
   }
-  if (!window.pdfjsLib) toast("O leitor PDF precisa ser carregado na primeira abertura com internet.", "error");
 }
 init();
