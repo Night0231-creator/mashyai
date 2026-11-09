@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#171d35">
+  <meta name="description" content="Estuda+ — seu espaço gratuito para organizar apostilas, anotações, mapas mentais e tempo de estudo.">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Estuda+">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="icon" href="./icons/icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="./icons/apple-touch-icon.png">
+  <link rel="stylesheet" href="./styles.css">
+  <title>Estuda+ | Seu espaço de estudos</title>
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="sidebar" id="sidebar">
+      <a class="brand" href="#inicio" aria-label="Estuda+ início">
+        <img src="./icons/icon.svg" alt="" class="brand-icon">
+        <span>estuda<span class="brand-plus">+</span></span>
+      </a>
+      <div class="nav-caption">SEU ESPAÇO DE ESTUDOS</div>
+      <nav class="nav">
+        <button class="nav-item active" data-view="home"><span>⌂</span> Início</button>
+        <button class="nav-item" data-view="library"><span>▤</span> Meus materiais</button>
+        <button class="nav-item" data-view="notebook"><span>▧</span> Meu caderno</button>
+        <button class="nav-item" data-view="mindmaps"><span>✧</span> Mapas mentais</button>
+      </nav>
+      <div class="sidebar-bottom">
+        <div class="storage-card">
+          <b>Seus estudos ficam com você</b>
+          <p>Arquivos e anotações são guardados neste aparelho. Faça backups regularmente.</p>
+          <div class="storage-meter"><i id="storage-meter-fill"></i></div>
+          <small id="storage-label">Verificando armazenamento…</small>
+        </div>
+        <button class="side-action" id="backup-btn">↓ Fazer backup</button>
+        <button class="side-action" id="restore-btn">↑ Restaurar backup</button>
+        <input id="restore-file" type="file" accept="application/json,.json" hidden>
+      </div>
+    </aside>
+
+    <main class="main">
+      <header class="topbar">
+        <button class="mobile-menu" id="mobile-menu" aria-label="Abrir menu">☰</button>
+        <div class="breadcrumb">Estuda+ <span>/</span> <b id="breadcrumb-current">Início</b></div>
+        <div class="top-actions">
+          <span class="offline-status" id="connection-status"><i></i> Preparando offline</span>
+          <button class="install-btn" id="install-btn" hidden>＋ Instalar app</button>
+        </div>
+      </header>
+
+      <div class="content">
+        <section class="view" id="view-home">
+          <div class="welcome">
+            <div><span class="eyebrow">SEU ESPAÇO DE APRENDIZAGEM</span><h1>Vamos estudar? 👋</h1><p>Organize seus materiais, faça anotações e mantenha o foco.</p></div>
+            <button class="btn primary" data-go="library">＋ Adicionar material</button>
+          </div>
+          <div class="stats-grid">
+            <article class="stat-card"><div class="stat-icon purple">▤</div><span>Materiais salvos</span><strong id="stat-materials">0</strong><small>Apostilas e PDFs</small></article>
+            <article class="stat-card"><div class="stat-icon blue">▧</div><span>Anotações</span><strong id="stat-notes">0</strong><small>No seu caderno</small></article>
+            <article class="stat-card"><div class="stat-icon amber">◷</div><span>Tempo estudado</span><strong id="stat-hours">0h</strong><small id="stat-minutes">0 minutos registrados</small></article>
+          </div>
+          <div class="home-columns">
+            <article class="panel timer-panel">
+              <div class="panel-heading"><div><span class="eyebrow">FOCO E CONSTÂNCIA</span><h2>Cronômetro de estudos</h2></div><span class="pill">Pomodoro</span></div>
+              <div class="timer-circle"><div><strong id="timer-display">25:00</strong><small id="timer-state">Pronto para começar</small></div></div>
+              <div class="timer-controls"><button class="btn primary" id="timer-start">Começar</button><button class="btn soft" id="timer-reset">Reiniciar</button></div>
+              <div class="timer-fields">
+                <label>Duração<select id="timer-length"><option value="25">25 minutos</option><option value="40">40 minutos</option><option value="50">50 minutos</option><option value="60">60 minutos</option></select></label>
+                <label>Matéria<input id="timer-subject" placeholder="Ex.: Direito Penal"></label>
+              </div>
+            </article>
+            <article class="panel">
+              <div class="panel-heading"><div><span class="eyebrow">ATALHOS</span><h2>O que deseja fazer?</h2></div></div>
+              <div class="quick-list">
+                <button class="quick-item" data-go="library"><span class="quick-icon purple">＋</span><span><b>Enviar material</b><small>Adicione apostilas, provas e PDFs</small></span><i>→</i></button>
+                <button class="quick-item" data-go="notebook"><span class="quick-icon blue">▧</span><span><b>Revisar anotações</b><small>Consulte seu caderno de estudos</small></span><i>→</i></button>
+                <button class="quick-item" data-go="mindmaps"><span class="quick-icon amber">✧</span><span><b>Criar mapa mental</b><small>Organize ideias de forma visual</small></span><i>→</i></button>
+              </div>
+            </article>
+          </div>
+          <article class="panel">
+            <div class="panel-heading"><div><span class="eyebrow">CONTINUE DE ONDE PAROU</span><h2>Materiais recentes</h2></div><button class="link-btn" data-go="library">Ver todos →</button></div>
+            <div class="recent-grid" id="recent-materials"><div class="empty-state">Seus materiais aparecerão aqui quando você adicionar o primeiro.</div></div>
+          </article>
+        </section>
+
+        <section class="view" id="view-library" hidden>
+          <div class="page-heading"><div><span class="eyebrow">SEUS MATERIAIS</span><h1>Meus materiais</h1><p>Guarde tudo o que você usa para estudar em um só lugar.</p></div><button class="btn primary" id="upload-trigger">＋ Enviar PDF</button></div>
+          <div class="upload-box"><div class="upload-symbol">↑</div><div class="upload-copy"><b>Adicione seus materiais de estudo</b><small>Envie apostilas, provas, listas de questões e mapas mentais em PDF.</small></div><button class="btn outline" id="upload-trigger-2">Selecionar arquivos</button></div>
+          <input id="pdf-files" type="file" accept="application/pdf,.pdf" multiple hidden>
+          <div class="toolbar"><h2>Minha biblioteca <span class="pill" id="material-count">0</span></h2><input class="search-input" id="material-search" placeholder="Buscar material..."></div>
+          <div class="materials-grid" id="materials-list"><div class="empty-state">Você ainda não adicionou nenhum PDF.</div></div>
+        </section>
+
+        <section class="view" id="view-reader" hidden>
+          <div class="reader-heading"><button class="back-btn" data-go="library">← Materiais</button><strong id="reader-title">Documento</strong><button class="btn soft" id="download-pdf">↓ Baixar PDF</button></div>
+          <div class="reader-layout">
+            <div class="pdf-panel">
+              <div class="pdf-toolbar">
+                <span id="pdf-status-text">Leitor Estuda+ · Página por página</span>
+                <div class="pdf-controls">
+                  <button id="page-prev" aria-label="Página anterior">‹</button>
+                  <input id="page-input" type="number" min="1" value="1" aria-label="Número da página">
+                  <span id="page-total">/ 0</span>
+                  <button id="page-next" aria-label="Próxima página">›</button>
+                  <button id="zoom-out" aria-label="Diminuir zoom">−</button>
+                  <button id="zoom-in" aria-label="Aumentar zoom">＋</button>
+                  <button id="zoom-fit" aria-label="Ajustar à tela">↔</button>
+                </div>
+              </div>
+              <div class="pdf-stage" id="pdf-stage"><div class="empty-state">Selecione um PDF para começar.</div></div>
+              <div class="pdf-footer"><span id="reader-filename">Documento PDF</span><span>Selecione um trecho para destacar</span></div>
+            </div>
+            <aside class="reader-tools">
+              <div class="tool-tabs"><button class="active" data-tool="note">Anotação</button><button data-tool="mark">Marca-texto</button><button data-tool="favorite">Favoritos</button></div>
+              <div id="tool-note"><label class="tool-label" for="page-note">Anotação desta página</label><textarea id="page-note" rows="7" placeholder="Escreva o que você precisa lembrar desta página..."></textarea><button class="btn primary full" id="save-note">Salvar anotação</button></div>
+              <div id="tool-mark" hidden>
+                <div class="selection-preview" id="selection-preview">Selecione um trecho no PDF. Depois escolha a cor e toque em “Aplicar marca-texto”.</div>
+                <label class="tool-label">Cor do marca-texto</label>
+                <div class="color-options"><button class="active" data-color="yellow" style="background:#ffe66b" aria-label="Amarelo"></button><button data-color="green" style="background:#91e6ae" aria-label="Verde"></button><button data-color="blue" style="background:#8ed4ff" aria-label="Azul"></button><button data-color="pink" style="background:#ffabc9" aria-label="Rosa"></button></div>
+                <button class="btn primary full" id="apply-highlight">Aplicar marca-texto</button>
+                <label class="tool-label" for="manual-highlight">Ou guardar um trecho digitado</label><textarea id="manual-highlight" rows="3" placeholder="Cole ou digite um trecho importante..."></textarea><button class="btn outline full" id="save-manual-highlight">Guardar trecho</button>
+                <p class="helper-text">No celular, pressione o texto e arraste os marcadores de seleção. No computador, arraste o cursor sobre o trecho.</p>
+              </div>
+              <div id="tool-favorite" hidden><label class="tool-label" for="bookmark-label">Nome desta página favorita</label><input id="bookmark-label" placeholder="Ex.: Direitos fundamentais"><button class="btn outline full" id="save-bookmark">☆ Salvar página atual</button><div class="separator"></div><span class="tool-label">Favoritos desta apostila</span><div class="tiny-list" id="page-bookmarks"></div></div>
+              <div class="separator"></div><span class="tool-label">Marcações desta página</span><div class="tiny-list" id="page-highlights"></div>
+            </aside>
+          </div>
+        </section>
+
+        <section class="view" id="view-notebook" hidden>
+          <div class="page-heading"><div><span class="eyebrow">TUDO O QUE VOCÊ REGISTROU</span><h1>Meu caderno</h1><p>Anotações, trechos destacados e páginas favoritas organizados por material.</p></div><button class="btn outline" id="export-notes">↓ Exportar caderno</button></div>
+          <div class="tabs"><button class="active" data-notes-tab="notes">Anotações <span id="notes-count">0</span></button><button data-notes-tab="highlights">Marca-textos <span id="highlights-count">0</span></button><button data-notes-tab="bookmarks">Favoritos <span id="bookmarks-count">0</span></button></div>
+          <div class="notes-grid" id="notes-list"></div><div class="notes-grid" id="highlights-list" hidden></div><div class="notes-grid" id="bookmarks-list" hidden></div>
+        </section>
+
+        <section class="view" id="view-mindmaps" hidden>
+          <div class="page-heading"><div><span class="eyebrow">APRENDA DE FORMA VISUAL</span><h1>Mapas mentais</h1><p>Transforme assuntos difíceis em ideias organizadas e fáceis de revisar.</p></div><button class="btn primary" id="new-map">＋ Criar mapa mental</button></div>
+          <div class="upload-box"><div class="upload-symbol">✧</div><div class="upload-copy"><b>Uma área ampla para suas ideias</b><small>Crie um tema central, adicione ramificações, mova os tópicos e personalize as cores.</small></div></div>
+          <div class="toolbar"><h2>Meus mapas <span class="pill" id="map-count">0</span></h2></div>
+          <div class="mindmaps-grid" id="maps-list"><div class="empty-state">Você ainda não criou mapas mentais. Clique em “Criar mapa mental” para começar.</div></div>
+        </section>
+
+        <section class="view" id="view-mind-editor" hidden>
+          <div class="mind-editor-heading"><button class="back-btn" data-go="mindmaps">← Meus mapas</button><h2 id="mind-title">Novo mapa mental</h2><button class="btn soft" id="rename-map">Renomear</button></div>
+          <div class="mind-toolbar">
+            <button class="btn primary" id="add-branch">＋ Adicionar ideia</button>
+            <button class="btn outline" id="edit-branch">✎ Editar selecionada</button>
+            <button class="btn outline" id="delete-branch">× Excluir selecionada</button>
+            <span class="toolbar-spacer"></span>
+            <button class="btn outline" id="mind-zoom-out">−</button><button class="btn outline" id="mind-zoom-in">＋</button><button class="btn outline" id="mind-fit">Ajustar</button>
+            <button class="btn outline" id="export-map">↓ Baixar imagem</button><button class="btn soft" id="save-map">✓ Salvar</button>
+          </div>
+          <div class="mind-viewport" id="mind-viewport">
+            <div class="mind-frame" id="mind-frame">
+              <div class="mind-world" id="mind-world">
+                <svg class="mind-lines" id="mind-lines" viewBox="0 0 2400 1600" width="2400" height="1600"></svg>
+                <div id="mind-nodes"></div>
+              </div>
+            </div>
+          </div>
+          <p class="mind-tip">Arraste os cartões para organizar o mapa. Toque em uma ideia para selecioná-la; depois use “Adicionar ideia” para criar uma ramificação ligada a ela. Role a área para navegar pelo espaço de trabalho.</p>
+        </section>
+      </div>
+    </main>
+  </div>
+
+  <div class="modal-backdrop" id="install-modal" hidden>
+    <div class="modal">
+      <button class="modal-close" id="close-install-modal" aria-label="Fechar">×</button>
+      <div class="modal-logo"><img src="./icons/icon.svg" alt=""></div>
+      <h2>Instale o Estuda+</h2>
+      <p id="install-instructions">Adicione o Estuda+ à tela inicial para abrir como aplicativo.</p>
+      <ol id="install-steps"></ol>
+      <button class="btn primary full" id="install-modal-ok">Entendi</button>
+    </div>
+  </div>
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+  <script src="./app.js"></script>
+</body>
+</html>
