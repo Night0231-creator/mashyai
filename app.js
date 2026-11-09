@@ -22,6 +22,7 @@ let pdfWorkerReady = null;
 let pdfLibraryReady = null;
 let noteSaveTimer = null;
 let timerSelectedMinutes = 25;
+let timerSubjectCurrent = "";
 let timerSeconds = 25 * 60;
 let timerInitialSeconds = 25 * 60;
 let timerInterval = null;
@@ -165,27 +166,27 @@ async function updateStorageStatus() {
 }
 
 const VIEW_NAMES = {
-  home:"Início", library:"Biblioteca PDF", reader:"Leitor de PDF", notebook:"Anotações por página",
-  favorites:"Páginas favoritas", timer:"Cronômetro", edital:"Checklist do edital",
-  planner:"Planejador", reviews:"Revisões", performance:"Desempenho",
-  goals:"Metas"
+  home:"Início",
+  library:"Apostilas PDF",
+  reader:"Leitor de PDF",
+  notebook:"Anotações por página",
+  timer:"Cronômetro personalizado",
+  performance:"Horas por matéria"
 };
 function setView(name) {
+  const allowed = ["home","library","reader","notebook","timer","performance"];
+  if (!allowed.includes(name)) return;
   $$(".view").forEach(view => view.hidden = view.id !== "view-" + name);
-  $$(".nav-item").forEach(button => button.classList.toggle("active", button.dataset.view === name));
+  $$(".nav-item").forEach(button => button.classList.toggle("active",button.dataset.view === name));
   $("#breadcrumb-current").textContent = VIEW_NAMES[name] || name;
   $("#sidebar").classList.remove("open");
   if (name === "home") renderHome();
   if (name === "library") renderMaterials();
   if (name === "notebook") renderNotebook();
-  if (name === "favorites") renderFavorites();
   if (name === "timer") renderTimerSessions();
-  if (name === "edital") renderEdictal();
-  if (name === "planner") renderPlanner();
-  if (name === "reviews") renderReviews();
   if (name === "performance") renderPerformance();
-  if (name === "goals") renderGoals();
 }
+
 function navigate(name) { setView(name); }
 function bindNavigation() {
   if (navigationBound) return;
@@ -231,7 +232,7 @@ async function deleteMaterial(id) {
   state.pageNotes = state.pageNotes.filter(item => item.materialId !== id);
   state.bookmarks = state.bookmarks.filter(item => item.materialId !== id);
   state.reviews = state.reviews.filter(item => item.materialId !== id);
-  await saveState(); renderMaterials(); renderNotebook(); renderFavorites(); renderHome(); updateStorageStatus();
+  await saveState(); renderMaterials(); renderNotebook(); renderHome(); updateStorageStatus();
   toast("Material removido.");
 }
 function renderMaterials() {
@@ -382,14 +383,11 @@ async function saveCurrentPageNote(showToast = false) {
 }
 async function renderReaderTools() {
   if (!currentMaterial) return;
-  const note = noteForPage(currentMaterial.id, pdfPage);
-  if (document.activeElement !== $("#page-note")) $("#page-note").value = note ? note.content : "";
-  const bookmark = state.bookmarks.find(item => item.materialId === currentMaterial.id && item.page === pdfPage);
-  $("#save-bookmark").textContent = bookmark ? "★ Página salva nos favoritos" : "☆ Salvar página favorita";
-  const books = state.bookmarks.filter(item => item.materialId === currentMaterial.id).sort((a,b) => a.page - b.page);
-  $("#page-bookmarks").innerHTML = books.length ? books.map(item => `<div class="tiny-item"><span>☆ Página ${item.page} · ${esc(item.label || "Favorita")}</span><button data-bookmark-page="${item.id}">Abrir</button></div>`).join("") : '<span class="helper-text">Nenhuma página favorita nesta apostila.</span>';
-  $$('[data-bookmark-page]').forEach(button => button.addEventListener("click", () => changePdfPage(books.find(item => item.id === button.dataset.bookmarkPage)?.page || 1)));
+  const note = noteForPage(currentMaterial.id,pdfPage);
+  const field = $("#page-note");
+  if (document.activeElement !== field) field.value = note ? note.content : "";
 }
+
 async function saveBookmark() {
   if (!currentMaterial) return;
   const existingIndex = state.bookmarks.findIndex(item => item.materialId === currentMaterial.id && item.page === pdfPage);
@@ -400,25 +398,28 @@ async function saveBookmark() {
     state.bookmarks.push({ id:uid(), materialId:currentMaterial.id, page:pdfPage, label:"Página importante", created:new Date().toISOString() });
     toast("Página adicionada aos favoritos.");
   }
-  await saveState(); await renderReaderTools(); renderFavorites();
+  await saveState(); await renderReaderTools();
 }
 
 function renderNotebook() {
-  const query = ($("#notes-search").value || "").toLowerCase().trim();
+  const query = ($("#notes-search")?.value || "").toLowerCase().trim();
   const notes = [...state.pageNotes].sort((a,b) => new Date(b.updated || 0) - new Date(a.updated || 0)).filter(item => {
     const title = material(item.materialId)?.title || "";
     return (title + " " + item.content).toLowerCase().includes(query);
   });
   $("#notes-count").textContent = state.pageNotes.length;
-  $("#notes-list").innerHTML = notes.length ? notes.map(item => `
-    <article class="note-card"><div class="note-card-head"><div><b>${esc(material(item.materialId)?.title || "Material removido")}</b><small>Página ${item.page} · Atualizado ${formatDate(item.updated)}</small></div></div>
-    <p>${esc(item.content)}</p><div class="note-actions"><button data-open-note="${item.id}">Abrir página →</button><button data-review-note="${item.id}">Agendar revisões</button></div></article>`).join("") : '<div class="empty-state">Nenhuma anotação encontrada. Abra uma apostila e escreva no caderno da página.</div>';
-  $$('[data-open-note]').forEach(button => button.addEventListener("click", async () => {
+  $("#notes-list").innerHTML = notes.length ? notes.map(item =>
+    '<article class="note-card"><div class="note-card-head"><div><b>' + esc(material(item.materialId)?.title || "Material removido") + '</b><small>Página ' + item.page + ' · Atualizado ' + formatDate(item.updated) + '</small></div></div><p>' + esc(item.content) + '</p><div class="note-actions"><button data-open-note="' + item.id + '">Abrir página →</button></div></article>'
+  ).join("") : '<div class="empty-state">Nenhuma anotação encontrada. Abra uma apostila e escreva no caderno da página.</div>';
+  $$("[data-open-note]").forEach(button => button.addEventListener("click", async () => {
     const item = state.pageNotes.find(note => note.id === button.dataset.openNote);
-    if (item) { await openReader(item.materialId); if (pdfDoc) await changePdfPage(item.page); }
+    if (item) {
+      await openReader(item.materialId);
+      if (pdfDoc) await changePdfPage(item.page);
+    }
   }));
-  $$('[data-review-note]').forEach(button => button.addEventListener("click", () => scheduleNoteReviews(button.dataset.reviewNote)));
 }
+
 function renderFavorites() {
   const items = [...state.bookmarks].sort((a,b) => new Date(b.created || 0) - new Date(a.created || 0));
   $("#favorites-count").textContent = items.length;
@@ -459,60 +460,129 @@ function getWeekMinutes() {
 }
 function renderHome() {
   renderStats();
-  const recent = [...state.materials].sort((a,b) => new Date(b.lastOpened || b.added) - new Date(a.lastOpened || a.added)).slice(0,3);
-  $("#recent-materials").innerHTML = recent.length ? recent.map(item => `<div class="recent-item"><span class="pdf-icon">PDF</span><div><b>${esc(item.title)}</b><small>${formatBytes(item.size)}</small></div><button data-recent-open="${item.id}">Abrir</button></div>`).join("") : '<div class="empty-state">Seus materiais aparecerão aqui quando você adicionar o primeiro.</div>';
-  $$('[data-recent-open]').forEach(button => button.addEventListener("click", () => openReader(button.dataset.recentOpen)));
-  const today = new Date().getDay();
-  const next = state.plannerItems.filter(item => Number(item.day) === today).sort((a,b) => a.time.localeCompare(b.time))[0];
-  $("#home-next-study").textContent = next ? `${next.time} · ${next.subject} · ${next.duration} minutos. Separe seu material e prepare-se para estudar.` : "Nenhum horário cadastrado para hoje. Adicione seus horários no Planejador para organizar sua rotina.";
-  const goal = state.goals.dailyMinutes || 120, done = getTodayMinutes(), percent = Math.min(100, Math.round(done / goal * 100));
-  $("#home-goal-progress").innerHTML = `<div class="goal-progress-line"><b>${minutesText(done)} de ${minutesText(goal)}</b><span>${percent}%</span></div><div class="progress-track"><i style="width:${percent}%"></i></div>`;
+  const recent = [...state.materials].sort((a,b) => new Date(b.lastOpened || b.added) - new Date(a.lastOpened || a.added)).slice(0,4);
+  $("#recent-materials").innerHTML = recent.length ? recent.map(item =>
+    '<div class="recent-item"><span class="pdf-icon">PDF</span><div><b>' + esc(item.title) + '</b><small>' + formatBytes(item.size) + '</small></div><button data-recent-open="' + item.id + '">Abrir</button></div>'
+  ).join("") : '<div class="empty-state">Adicione sua primeira apostila para começar.</div>';
+  $$("[data-recent-open]").forEach(button => button.addEventListener("click", () => openReader(button.dataset.recentOpen)));
 }
 
 function updateTimerDisplay() {
   const minutes = Math.floor(timerSeconds / 60), seconds = timerSeconds % 60;
-  $("#timer-display").textContent = String(minutes).padStart(2,"0") + ":" + String(seconds).padStart(2,"0");
+  const display = $("#timer-display");
+  if (display) display.textContent = String(minutes).padStart(2,"0") + ":" + String(seconds).padStart(2,"0");
 }
-function updateTimerPresetButtons(selected) {
-  $$("[data-timer-preset]").forEach(button => button.classList.toggle("active", button.dataset.timerPreset === String(selected)));
-}
-function setTimerDuration(minutes, custom = false) {
-  if (timerActive) { toast("Pause o cronômetro antes de mudar o tempo.", "error"); return; }
-  timerSelectedMinutes = minutes;
-  timerSeconds = minutes * 60;
-  timerInitialSeconds = timerSeconds;
-  updateTimerPresetButtons(custom ? "custom" : minutes);
-  $("#timer-custom-box").hidden = !custom;
-  $("#timer-state").textContent = "Pronto · " + minutes + " minutos";
-  $("#timer-start").textContent = "▶ Começar";
-  updateTimerDisplay();
-}
-function openCustomTimer() {
-  if (timerActive) { toast("Pause o cronômetro antes de mudar o tempo.", "error"); return; }
-  updateTimerPresetButtons("custom");
-  $("#timer-custom-box").hidden = false;
-  $("#timer-custom-minutes").focus();
-}
-function applyCustomTimer() {
-  const minutes = Number($("#timer-custom-minutes").value);
+
+function applyCustomTimer(showToast = true, forceReset = true) {
+  if (timerActive) { toast("Pause o cronômetro antes de mudar o tempo.", "error"); return false; }
+  const input = $("#timer-custom-minutes");
+  const minutes = Number(input?.value);
   if (!Number.isInteger(minutes) || minutes < 1 || minutes > 600) {
-    toast("Escolha um tempo entre 1 e 600 minutos.", "error");
-    return;
+    toast("Digite um tempo entre 1 e 600 minutos.", "error");
+    return false;
   }
-  setTimerDuration(minutes, true);
-  toast("Cronômetro ajustado para " + minutes + " minutos.");
+  const changed = minutes !== timerSelectedMinutes;
+  if (changed || forceReset) {
+    timerSelectedMinutes = minutes;
+    timerSeconds = minutes * 60;
+    timerInitialSeconds = timerSeconds;
+    timerSubjectCurrent = "";
+    $("#timer-subject").disabled = false;
+    $("#timer-state").textContent = "Pronto · " + minutes + " minutos";
+    $("#timer-start").textContent = "▶ Começar";
+    updateTimerDisplay();
+  }
+  if (showToast) toast("Tempo definido: " + minutes + " minutos.");
+  return true;
 }
+
 function resetTimer() {
-  clearInterval(timerInterval); timerActive = false;
+  clearInterval(timerInterval);
+  timerActive = false;
+  timerSubjectCurrent = "";
   timerSeconds = timerSelectedMinutes * 60;
   timerInitialSeconds = timerSeconds;
-  $("#timer-start").textContent = "▶ Começar"; $("#timer-state").textContent = "Pronto para começar";
+  $("#timer-custom-minutes").disabled = false;
+  $("#timer-subject").disabled = false;
+  $("#timer-start").textContent = "▶ Começar";
+  $("#timer-state").textContent = "Pronto para começar";
   updateTimerDisplay();
 }
+
+async function recordTimerSession(minutes, subject) {
+  if (minutes < 1) {
+    toast("A sessão foi menor que 1 minuto e não entrou no gráfico.", "error");
+    return false;
+  }
+  const cleanSubject = String(subject || "").trim();
+  if (!cleanSubject) {
+    toast("Informe a matéria para registrar suas horas.", "error");
+    return false;
+  }
+  state.sessions.push({ id:uid(), minutes, subject:cleanSubject, date:new Date().toISOString() });
+  await saveState();
+  renderTimerSessions();
+  renderHome();
+  renderPerformance();
+  toast("Sessão salva em " + cleanSubject + ".");
+  return true;
+}
+
+async function finishTimer(completed = false) {
+  if (!timerActive && timerSeconds === 0) return;
+  clearInterval(timerInterval);
+  timerActive = false;
+  const elapsedSeconds = completed ? timerInitialSeconds : Math.max(0,timerInitialSeconds - timerSeconds);
+  const elapsed = Math.floor(elapsedSeconds / 60);
+  const subject = timerSubjectCurrent || $("#timer-subject").value.trim();
+  $("#timer-custom-minutes").disabled = false;
+  $("#timer-subject").disabled = false;
+  $("#timer-start").textContent = "▶ Começar";
+  $("#timer-state").textContent = completed ? "Sessão concluída!" : "Sessão finalizada";
+  await recordTimerSession(elapsed,subject);
+  timerSeconds = 0;
+  timerSubjectCurrent = "";
+  updateTimerDisplay();
+}
+
+function toggleTimer() {
+  if (timerActive) {
+    clearInterval(timerInterval);
+    timerActive = false;
+    $("#timer-start").textContent = "Continuar";
+    $("#timer-state").textContent = "Pausado";
+    return;
+  }
+  if (!timerSubjectCurrent) {
+    if (!applyCustomTimer(false,false)) return;
+    const subject = $("#timer-subject").value.trim();
+    if (!subject) {
+      toast("Digite o nome da matéria antes de começar.", "error");
+      $("#timer-subject").focus();
+      return;
+    }
+    timerSubjectCurrent = subject;
+  }
+  if (timerSeconds <= 0) {
+    timerSeconds = timerSelectedMinutes * 60;
+    timerInitialSeconds = timerSeconds;
+  }
+  $("#timer-custom-minutes").disabled = true;
+  $("#timer-subject").disabled = true;
+  timerActive = true;
+  $("#timer-start").textContent = "Pausar";
+  $("#timer-state").textContent = "Em concentração";
+  timerInterval = setInterval(() => {
+    timerSeconds = Math.max(0,timerSeconds - 1);
+    updateTimerDisplay();
+    if (timerSeconds <= 0) finishTimer(true);
+  },1000);
+}
+
 async function recordTimerSession(minutes) {
   if (minutes < 1) { toast("Estude pelo menos 1 minuto para registrar a sessão.", "error"); return; }
   state.sessions.push({ id:uid(), minutes, subject:$("#timer-subject").value.trim() || "Geral", date:new Date().toISOString() });
-  await saveState(); renderTimerSessions(); renderHome(); renderPerformance(); renderGoals();
+  await saveState(); renderTimerSessions(); renderHome(); renderPerformance();
   toast("Sessão registrada no seu desempenho. Parabéns!");
 }
 async function finishTimer(completed = false) {
@@ -537,8 +607,13 @@ function toggleTimer() {
   }, 1000);
 }
 function renderTimerSessions() {
-  const sessions = [...state.sessions].sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0,8);
-  $("#timer-recent-sessions").innerHTML = sessions.length ? sessions.map(item => `<div class="simple-row"><div><b>${esc(item.subject || "Geral")}</b><small>${formatDate(item.date)}</small></div><strong>${minutesText(item.minutes)}</strong></div>`).join("") : '<div class="empty-state">Suas sessões concluídas aparecerão aqui.</div>';
+  const sessions = [...state.sessions].sort((a,b) => new Date(b.date) - new Date(a.date)).slice(0,6);
+  $("#timer-recent-sessions").innerHTML = sessions.length ? sessions.map(item =>
+    '<div class="simple-row"><div><b>' + esc(item.subject || "Sem matéria") + '</b><small>' + formatDate(item.date) + '</small></div><strong>' + minutesText(item.minutes) + '</strong></div>'
+  ).join("") : '<div class="empty-state">Suas sessões concluídas aparecerão aqui.</div>';
+  const subjects = [...new Set(state.sessions.map(item => String(item.subject || "").trim()).filter(Boolean))].sort((a,b) => a.localeCompare(b,"pt-BR"));
+  const datalist = $("#timer-subject-options");
+  if (datalist) datalist.innerHTML = subjects.map(name => '<option value="' + esc(name) + '"></option>').join("");
 }
 
 function renderEdictal() {
@@ -670,25 +745,25 @@ async function scheduleCurrentPageReviews() {
 }
 
 function renderPerformance() {
-  const total = state.sessions.reduce((sum,item) => sum + (Number(item.minutes) || 0), 0);
-  const week = getWeekMinutes();
-  $("#perf-total").textContent = Math.floor(total / 60) + "h";
-  $("#perf-total-min").textContent = total + " minutos";
-  $("#perf-week").textContent = minutesText(week);
-  $("#perf-sessions").textContent = state.sessions.length;
-  const days = [];
-  for (let offset = 6; offset >= 0; offset--) {
-    const date = new Date(); date.setDate(date.getDate() - offset);
-    const key = localDateKey(date);
-    const minutes = state.sessions.filter(item => localDateKey(item.date) === key).reduce((sum,item) => sum + (Number(item.minutes) || 0), 0);
-    days.push({ key, label:SHORT_DAYS[date.getDay()], minutes });
-  }
-  const max = Math.max(60, ...days.map(day => day.minutes));
-  $("#weekly-chart").innerHTML = days.map(day => `<div class="chart-day"><small>${day.minutes ? minutesText(day.minutes) : "0 min"}</small><div class="chart-bar-wrap"><div class="chart-bar" style="height:${Math.max(day.minutes ? 5 : 1, day.minutes / max * 100)}%"></div></div><b>${day.label}</b></div>`).join("");
-  const grouped = {};
-  state.sessions.forEach(item => grouped[item.subject || "Geral"] = (grouped[item.subject || "Geral"] || 0) + (Number(item.minutes) || 0));
-  const subjects = Object.entries(grouped).sort((a,b) => b[1] - a[1]);
-  $("#subject-performance").innerHTML = subjects.length ? subjects.map(([name,minutes]) => `<div class="simple-row"><div><b>${esc(name)}</b><small>${state.sessions.filter(item => (item.subject || "Geral") === name).length} sessões</small></div><strong>${minutesText(minutes)}</strong></div>`).join("") : '<div class="empty-state">Conclua uma sessão no cronômetro para ver seu desempenho.</div>';
+  const grouped = new Map();
+  state.sessions.forEach(item => {
+    const displayName = String(item.subject || "Sem matéria").trim() || "Sem matéria";
+    const key = displayName.toLocaleLowerCase("pt-BR");
+    const current = grouped.get(key) || { name:displayName, minutes:0, sessions:0 };
+    current.minutes += Number(item.minutes) || 0;
+    current.sessions += 1;
+    grouped.set(key,current);
+  });
+  const subjects = [...grouped.values()].sort((a,b) => b.minutes - a.minutes);
+  const total = subjects.reduce((sum,item) => sum + item.minutes,0);
+  $("#perf-total").textContent = minutesText(total);
+  $("#perf-total-min").textContent = total + " minutos registrados";
+  $("#perf-subjects").textContent = subjects.length;
+  const max = Math.max(1,...subjects.map(item => item.minutes));
+  $("#subject-chart").innerHTML = subjects.length ? subjects.map(item => {
+    const percent = Math.max(2,Math.round(item.minutes / max * 100));
+    return '<div class="subject-chart-row"><div class="subject-chart-label"><b>' + esc(item.name) + '</b><strong>' + minutesText(item.minutes) + '</strong></div><div class="subject-chart-track" role="img" aria-label="' + esc(item.name) + ': ' + minutesText(item.minutes) + '"><span style="width:' + percent + '%"></span></div><small>' + item.sessions + (item.sessions === 1 ? ' sessão registrada' : ' sessões registradas') + '</small></div>';
+  }).join("") : '<div class="empty-state">Ainda não há horas registradas. Escolha uma matéria no cronômetro e finalize sua primeira sessão.</div>';
 }
 
 function renderGoals() {
@@ -775,50 +850,54 @@ function registerPwa() {
 }
 
 function renderEverything() {
-  renderHome(); renderMaterials(); renderNotebook(); renderFavorites(); renderTimerSessions();
-  renderEdictal(); renderPlanner(); renderReviews(); renderPerformance(); renderGoals();
+  renderHome();
+  renderMaterials();
+  renderNotebook();
+  renderTimerSessions();
+  renderPerformance();
 }
+
 function bindEvents() {
   bindNavigation();
-  $("#upload-trigger").addEventListener("click", () => $("#pdf-files").click());
-  $("#upload-trigger-2").addEventListener("click", () => $("#pdf-files").click());
-  $("#pdf-files").addEventListener("change", event => { uploadPdfs([...event.target.files]); event.target.value = ""; });
-  $("#material-search").addEventListener("input", renderMaterials);
-  $("#page-prev").addEventListener("click", () => changePdfPage(pdfPage - 1));
-  $("#page-next").addEventListener("click", () => changePdfPage(pdfPage + 1));
-  $("#page-input").addEventListener("change", () => changePdfPage($("#page-input").value));
-  $("#page-input").addEventListener("keydown", event => { if (event.key === "Enter") changePdfPage($("#page-input").value); });
-  $("#zoom-in").addEventListener("click", () => { pdfZoom = Math.min(2.5, pdfZoom + .2); renderPdfPage(); });
-  $("#zoom-out").addEventListener("click", () => { pdfZoom = Math.max(.6, pdfZoom - .2); renderPdfPage(); });
-  $("#zoom-fit").addEventListener("click", () => { pdfZoom = 1; renderPdfPage(); });
-  $("#download-pdf").addEventListener("click", async () => { if (!currentMaterial) return; const record = await idbGet("files", currentMaterial.id); if (record?.blob) downloadBlob(record.blob, record.name); });
-  $("#save-note").addEventListener("click", () => saveCurrentPageNote(true));
-  $("#page-note").addEventListener("input", () => { clearTimeout(noteSaveTimer); noteSaveTimer = setTimeout(() => saveCurrentPageNote(false), 450); });
-  $("#page-note").addEventListener("blur", () => { if (currentMaterial) saveCurrentPageNote(false); });
-  $("#save-bookmark").addEventListener("click", saveBookmark);
-  $("#schedule-page-review").addEventListener("click", scheduleCurrentPageReviews);
-  $("#export-notes").addEventListener("click", exportNotebook);
-  $("#notes-search").addEventListener("input", renderNotebook);
-  $("#timer-start").addEventListener("click", toggleTimer);
-  $("#timer-reset").addEventListener("click", resetTimer);
-  $("#timer-finish").addEventListener("click", () => finishTimer(false));
-  $('[data-timer-preset]').forEach(button => button.addEventListener("click", () => {
-    if (button.dataset.timerPreset === "custom") openCustomTimer();
-    else setTimerDuration(Number(button.dataset.timerPreset), false);
-  }));
-  $("#timer-apply-custom").addEventListener("click", applyCustomTimer);
-  $("#timer-custom-minutes").addEventListener("keydown", event => { if (event.key === "Enter") applyCustomTimer(); });
-  $("#exam-name").addEventListener("change", async () => { state.examName = $("#exam-name").value.trim(); await saveState(); });
-  $("#add-subject").addEventListener("click", addSubject);
-  $("#new-subject").addEventListener("keydown", event => { if (event.key === "Enter") addSubject(); });
-  $("#add-plan").addEventListener("click", addPlanItem);
-  $("#add-review").addEventListener("click", addManualReview);
-  $("#review-filter").addEventListener("change", renderReviews);
-  $("#save-goals").addEventListener("click", saveGoals);
-  $("#backup-btn").addEventListener("click", backupData);
-  $("#restore-btn").addEventListener("click", () => $("#restore-file").click());
-  $("#restore-file").addEventListener("change", event => { if (event.target.files[0]) restoreData(event.target.files[0]); event.target.value = ""; });
-  window.addEventListener("resize", () => { if (!$("#view-reader").hidden && pdfDoc) renderPdfPage(); });
+  const on = (selector,event,handler) => {
+    const element = $(selector);
+    if (element) element.addEventListener(event,handler);
+  };
+  on("#upload-trigger","click",() => $("#pdf-files").click());
+  on("#upload-trigger-2","click",() => $("#pdf-files").click());
+  on("#pdf-files","change",event => { uploadPdfs([...event.target.files]); event.target.value = ""; });
+  on("#material-search","input",renderMaterials);
+  on("#page-prev","click",() => changePdfPage(pdfPage - 1));
+  on("#page-next","click",() => changePdfPage(pdfPage + 1));
+  on("#page-input","change",() => changePdfPage($("#page-input").value));
+  on("#page-input","keydown",event => { if (event.key === "Enter") changePdfPage($("#page-input").value); });
+  on("#zoom-in","click",() => { pdfZoom = Math.min(2.5,pdfZoom + .2); renderPdfPage(); });
+  on("#zoom-out","click",() => { pdfZoom = Math.max(.6,pdfZoom - .2); renderPdfPage(); });
+  on("#zoom-fit","click",() => { pdfZoom = 1; renderPdfPage(); });
+  on("#download-pdf","click",async () => {
+    if (!currentMaterial) return;
+    const record = await idbGet("files",currentMaterial.id);
+    if (record?.blob) downloadBlob(record.blob,record.name);
+  });
+  on("#save-note","click",() => saveCurrentPageNote(true));
+  on("#page-note","input",() => { clearTimeout(noteSaveTimer); noteSaveTimer = setTimeout(() => saveCurrentPageNote(false),450); });
+  on("#page-note","blur",() => { if (currentMaterial) saveCurrentPageNote(false); });
+  on("#notes-search","input",renderNotebook);
+  on("#timer-start","click",toggleTimer);
+  on("#timer-reset","click",resetTimer);
+  on("#timer-finish","click",() => {
+    if (timerSeconds === timerInitialSeconds && !timerActive) {
+      toast("Comece a estudar antes de finalizar a sessão.","error");
+      return;
+    }
+    finishTimer(false);
+  });
+  on("#timer-apply-custom","click",() => applyCustomTimer(true,true));
+  on("#timer-custom-minutes","keydown",event => { if (event.key === "Enter") applyCustomTimer(true,true); });
+  on("#backup-btn","click",backupData);
+  on("#restore-btn","click",() => $("#restore-file").click());
+  on("#restore-file","change",event => { if (event.target.files[0]) restoreData(event.target.files[0]); event.target.value = ""; });
+  window.addEventListener("resize",() => { if (!$("#view-reader").hidden && pdfDoc) renderPdfPage(); });
 }
 
 window.addEventListener("error", event => {
