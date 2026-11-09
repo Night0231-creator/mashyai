@@ -86,3 +86,43 @@ input,textarea,select{min-height:44px;border-radius:11px;padding:11px 12px;font-
   .subject-card{padding:13px}
   .subject-title-wrap h3{font-size:13px}
 }
+
+
+/* Interface essencial: apostilas, anotações, cronômetro e gráfico por matéria */
+.home-tools-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:20px 0}
+.home-tool-card{min-width:0;min-height:150px;border:1px solid #e8eaf2;border-radius:18px;background:#fff;padding:18px;text-align:left;display:flex;flex-direction:column;align-items:flex-start;gap:7px;box-shadow:0 7px 22px rgba(31,42,75,.045);transition:transform .15s ease,box-shadow .15s ease,border-color .15s ease}
+.home-tool-card:active{transform:scale(.985)}
+.home-tool-card:hover{border-color:#d8d1fb;box-shadow:0 10px 26px rgba(31,42,75,.08)}
+.home-tool-icon{width:42px;height:42px;border-radius:13px;display:grid;place-items:center;font-size:21px;font-weight:850}
+.home-tool-icon.purple{background:#f0edff;color:#7056db}.home-tool-icon.blue{background:#eaf3ff;color:#477fd0}.home-tool-icon.amber{background:#fff4df;color:#c18a27}.home-tool-icon.green{background:#e8f7ef;color:#27956c}
+.home-tool-card b{font-size:14px;color:#263149;margin-top:3px}
+.home-tool-card small{font-size:11px;color:#8992a3;line-height:1.4}
+.home-tool-arrow{font-size:11px;font-weight:850;color:#6e57d3;margin-top:auto;padding-top:4px}
+.subject-chart-summary{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin-bottom:18px}
+.subject-chart-panel{padding:22px}
+.subject-chart{display:grid;gap:21px;padding:8px 0}
+.subject-chart-row{display:grid;gap:7px}
+.subject-chart-label{display:flex;align-items:center;justify-content:space-between;gap:12px}
+.subject-chart-label b{font-size:13px;color:#2b354b;overflow-wrap:anywhere}
+.subject-chart-label strong{font-size:12px;color:#6851cb;white-space:nowrap}
+.subject-chart-track{height:13px;border-radius:99px;background:#f0eff7;overflow:hidden}
+.subject-chart-track span{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#9b8bf2,#6952d9);min-width:4px;transition:width .25s ease}
+.subject-chart-row small{font-size:10px;color:#98a0af}
+.timer-custom-always{display:block!important}
+.timer-fields{display:grid;grid-template-columns:1fr;max-width:430px;margin:0 auto 14px}
+.timer-fields label{display:grid;gap:7px;font-size:12px;font-weight:800;color:#657087}
+.timer-fields input{width:100%}
+.timer-controls{display:flex;flex-wrap:wrap;justify-content:center;gap:9px}
+.timer-controls .btn{min-width:120px}
+@media(max-width:650px){
+  .home-tools-grid{gap:10px}
+  .home-tool-card{min-height:142px;padding:14px;border-radius:15px}
+  .home-tool-card b{font-size:12px}
+  .home-tool-card small{font-size:10px}
+  .subject-chart-summary{grid-template-columns:1fr}
+  .subject-chart-panel{padding:16px}
+  .subject-chart-label b{font-size:12px}
+  .timer-controls{display:grid;grid-template-columns:1fr 1fr}
+  .timer-controls #timer-start{grid-column:1/-1}
+  .timer-controls #timer-finish{grid-column:1/-1}
+}
