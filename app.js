@@ -26,6 +26,7 @@ let timerInitialSeconds = 25 * 60;
 let timerInterval = null;
 let timerActive = false;
 let installPrompt = null;
+let navigationBound = false;
 
 function uid() { return "id-" + Date.now().toString(36) + Math.random().toString(36).slice(2, 8); }
 function esc(value = "") {
@@ -186,9 +187,23 @@ function setView(name) {
 }
 function navigate(name) { setView(name); }
 function bindNavigation() {
-  $$(".nav-item").forEach(button => button.addEventListener("click", () => navigate(button.dataset.view)));
-  $$('[data-go]').forEach(button => button.addEventListener("click", () => navigate(button.dataset.go)));
-  $("#mobile-menu").addEventListener("click", () => $("#sidebar").classList.toggle("open"));
+  if (navigationBound) return;
+  navigationBound = true;
+  document.addEventListener("click", event => {
+    const navButton = event.target.closest(".nav-item");
+    const goButton = event.target.closest("[data-go]");
+    const target = navButton || goButton;
+    if (!target) return;
+    event.preventDefault();
+    const destination = navButton ? navButton.dataset.view : goButton.dataset.go;
+    try { navigate(destination); }
+    catch (error) {
+      console.error("Falha ao abrir a tela:", error);
+      toast("Não foi possível abrir esta tela. Tente novamente.", "error");
+    }
+  });
+  const menu = $("#mobile-menu");
+  if (menu) menu.addEventListener("click", () => $("#sidebar")?.classList.toggle("open"));
 }
 
 async function uploadPdfs(files) {
@@ -653,7 +668,7 @@ function renderGoals() {
     <article class="goal-card"><h3>Meta semanal</h3><strong>${weeklyPercent}%</strong><small>${minutesText(week)} de ${minutesText(weekly)}</small><div class="progress-track"><i style="width:${weeklyPercent}%"></i></div></article>
     <article class="goal-card"><h3>Revisões para hoje</h3><strong>${pendingReviews}</strong><small>Revisões pendentes com vencimento até hoje</small><button class="btn soft full" data-go="reviews">Ver revisões</button></article>
     <article class="goal-card"><h3>Assuntos concluídos</h3><strong>${state.editalSubjects.flatMap(subject => subject.topics || []).filter(topic => topic.status === "done" || topic.status === "reviewed").length}</strong><small>No checklist do edital</small><button class="btn soft full" data-go="edital">Ver edital</button></article>`;
-  $$("#goal-cards [data-go]").forEach(button => button.addEventListener("click", () => navigate(button.dataset.go)));
+  // Os atalhos dinâmicos usam a navegação delegada do documento.
 }
 async function saveGoals() {
   const dailyMinutes = Number($("#goal-daily").value), weeklyMinutes = Number($("#goal-weekly").value);
@@ -770,23 +785,49 @@ function bindEvents() {
   window.addEventListener("resize", () => { if (!$("#view-reader").hidden && pdfDoc) renderPdfPage(); });
 }
 
+window.addEventListener("error", event => {
+  console.error("Erro no Estuda+:", event.error || event.message);
+  toast("O aplicativo encontrou um erro. Recarregue a página para continuar.", "error");
+});
+window.addEventListener("unhandledrejection", event => {
+  console.error("Operação não concluída no Estuda+:", event.reason);
+  toast("Uma operação não foi concluída. Tente novamente.", "error");
+});
+
 async function init() {
+  // Registra os cliques antes de acessar o armazenamento. Assim, uma demora do
+  // IndexedDB não deixa a interface inteira sem resposta.
+  try { bindEvents(); }
+  catch (error) {
+    console.error("Falha ao ativar os botões:", error);
+    toast("Alguns controles não carregaram. Recarregue o Estuda+.", "error");
+  }
+  try { registerPwa(); }
+  catch (error) { console.warn("PWA:", error); }
+
   try {
     await openDatabase();
     await loadState();
-    await saveState(); // Migra anotações/favoritos antigos e remove definitivamente os dados das ferramentas descontinuadas.
+    await saveState(); // Mantém os dados anteriores e remove apenas a ferramenta de notas rápidas.
     await requestPersistentStorage();
   } catch (error) {
     console.error(error);
-    toast("Não foi possível iniciar o armazenamento local neste navegador.", "error");
+    toast("O armazenamento não abriu. Feche outras abas do Estuda+ e tente novamente.", "error");
   }
-  bindEvents();
-  registerPwa();
-  renderEverything();
-  $("#review-date").value = todayKey();
+
+  try { renderEverything(); }
+  catch (error) {
+    console.error("Falha ao montar a interface:", error);
+    toast("A tela encontrou um erro ao carregar. Recarregue o aplicativo.", "error");
+  }
+  const reviewDate = $("#review-date");
+  if (reviewDate) reviewDate.value = todayKey();
   updateTimerDisplay();
-  $("#connection-status").textContent = navigator.onLine ? "Conectado" : "Modo offline";
-  $("#connection-status").classList.toggle("online", navigator.onLine);
+  const connection = $("#connection-status");
+  if (connection) {
+    connection.textContent = navigator.onLine ? "Conectado" : "Modo offline";
+    connection.classList.toggle("online", navigator.onLine);
+  }
   if (!window.pdfjsLib) toast("O leitor PDF precisa ser carregado na primeira abertura com internet.", "error");
 }
 init();
